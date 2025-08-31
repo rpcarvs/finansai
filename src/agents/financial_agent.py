@@ -1,5 +1,4 @@
 import os
-from typing import Literal
 
 import streamlit as st
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -20,6 +19,7 @@ query_prompt = ChatPromptTemplate.from_messages(
             You HAVE TO call the tav_search tool once and ONLY once. \
             _query_ = {query} \
             Extract information from the Tool reply. \
+            Analyze the information as it is. You must be neutral. \
             --- \
             **IMPORTANT**: If no reply from the Tool, DO NOT INVENT any information. \
             Just write 'empty' for Summary. \
@@ -31,7 +31,7 @@ query_prompt = ChatPromptTemplate.from_messages(
             -Summary: A detailed and long summary representing the retrieved information.",
         ),
         MessagesPlaceholder(variable_name="query"),
-    ]
+    ],
 )
 
 tav_search = TavilySearch(
@@ -46,7 +46,7 @@ tav_search = TavilySearch(
 def query_financial_agent(
     ticker: str,
     company: str,
-    model: Literal["qwen3:1.7b", "qwen3:0.6b", "llama3.2:3b"] = "llama3.2:3b",
+    model: str,
 ) -> Classification:
     llm_financial = ChatOllama(
         model=model,
@@ -62,11 +62,11 @@ def query_financial_agent(
     msg = query_prompt.invoke(
         {
             "query": [
-                f"What are the most relevant financial news about {ticker} or {company}?"
-            ]
-        }
+                f"What are the most relevant financial news about {ticker} or {company}?",
+            ],
+        },
     )
     response = agent_executor.invoke(msg)
     return structured_output.invoke(
-        response["messages"][-1].content.split("</think>")[-1]
+        response["messages"][-1].content.split("</think>")[-1],
     )  # type: ignore

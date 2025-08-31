@@ -1,5 +1,3 @@
-from typing import Literal
-
 import praw
 import streamlit as st
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -14,10 +12,11 @@ query_prompt = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a social media expert. Call the tool once using the '_query_' \
+            "You are a social media expert and analyst. Call the tool once using the '_query_' \
             below exactly as the user provided. Do NOT modify it! \
             You HAVE TO call the reddit_tool once and ONLY once. \
             Extract social media messages from the Tool reply. \
+            Analyze the messages as they are. You must be neutral. \
             --- \
             **IMPORTANT**: If no reply from the Tool, DO NOT INVENT any information. \
             Just write 'empty' for Summary. \
@@ -30,7 +29,7 @@ query_prompt = ChatPromptTemplate.from_messages(
             -Summary: A detailed summary representing the overall comments.",
         ),
         MessagesPlaceholder(variable_name="query"),
-    ]
+    ],
 )
 
 
@@ -51,7 +50,10 @@ def get_posts_n_messages(
 ) -> str:
     submission = None
     for submission in subreddit.search(
-        query, sort="relevance", time_filter="month", limit=search_limit
+        query,
+        sort="relevance",
+        time_filter="month",
+        limit=search_limit,
     ):
         # Limit, sort and Load comments
         submission.comment_sort = "top"
@@ -65,15 +67,13 @@ def get_posts_n_messages(
             for comment in submission.comments.list()  # type: ignore
         )
         return serialized
-    else:
-        # if the search returns nothing
-        return ""
+    # if the search returns nothing
+    return ""
 
 
 @tool
 def reddit_tool(query: str) -> str:
     """Use this tool to query messages from social media."""
-
     subs = ["StockMarket", "investing", "wallstreetbets"]
 
     serialized = ""
@@ -87,10 +87,10 @@ def reddit_tool(query: str) -> str:
     return serialized
 
 
-def query_financial_agent(
+def query_social_agent(
     ticker: str,
     company: str,
-    model: Literal["qwen3:1.7b", "qwen3:0.6b", "llama3.2:3b"] = "llama3.2:3b",
+    model: str,
 ) -> Classification:
     llm_social = ChatOllama(
         model=model,
@@ -106,5 +106,5 @@ def query_financial_agent(
     msg = query_prompt.invoke({"query": [f"{ticker} OR {company}"]})
     response = agent_executor.invoke(msg)
     return structured_output.invoke(
-        response["messages"][-1].content.split("</think>")[-1]
+        response["messages"][-1].content.split("</think>")[-1],
     )  # type: ignore
